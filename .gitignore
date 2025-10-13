@@ -1,1 +1,84 @@
+# Python
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+.Python
+build/
+dist/
+*.eggs/
+parts/
+sdist/
+develop-eggs/
+lib/
+lib64/
+wheels/
+pip-wheel-metadata/
+.bak
+*.swp
+*~
+
+# Envionronment Variables
 .env
+.env.local
+.env.*.local
+
+# Database
+*.sqlite3
+*.db
+*.sqlite
+instance/
+db.sqlite3-journal
+
+# Logs
+*.log
+logs/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# OS Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+.DS_Store?
+._*
+
+# IDE Files
+.vscode/
+.idea/
+.vscode/settings/
+.vscode/tasks.json
+.vscode/launch.json
+
+# Testing 
+.pytest_cache/
+.coverage
+.coverage.*
+.pytest_cache
+.cache
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+playwright-report/
+.playwright/.pytest_cache/
+test-results/
+
+# Security Testing
+*.zap
+zap-report.html
+zap-report.json
+zap-reports/
+
+# Flask
+.webassets-cache
+
