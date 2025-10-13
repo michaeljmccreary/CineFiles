@@ -1,0 +1,10 @@
+{% extends "base.html" %} {% block content %}
+<h1>Welcome to CineLog</h1>
+<p>Your personal movie review and discussion website</p>
+{% if 'username' in session %}
+<p>
+  Hello, {{ session['username'] }}! <a href="{{ url_for('logout') }}">Logout</a>
+</p>
+{% else %}
+<p></p>
+{% endif %} {% endblock %}
