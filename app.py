@@ -6,6 +6,9 @@ from models import db, User
 from flask import Flask , render_template, request, redirect, url_for, flash, jsonify, session, g
 # For catching database errors
 import sqlite3
+import os, time, random, requests
+from dotenv import load_dotenv
+
 
 # Create the Flask application and configure it
 # Tells flask to look for templates and static files in the current directory
@@ -15,6 +18,8 @@ app.config.from_object(Config)
 # Hardocoded secret key for session management - Bad security makes app vulnerable to session attacks
 # Secret key Generated using https://secretkeygen.vercel.app/ - hard coding into the app on purpose
 app.secret_key = "46bcef3f322dec211634eb9d0f497056"
+load_dotenv()
+TMDB_API= os.environ.get("TMDB_API")
 # Connect the database to the app
 db.init_app(app)
 
@@ -23,7 +28,9 @@ db.init_app(app)
 # Home page route - when someone visits the root URL
 @app.route('/')
 def index():
-    return render_template('index.html')
+    movie_list = get_movies()
+    return render_template('index.html', movies = movie_list)
+    
 
 # User registration page - lets users create a new account
 @app.route('/register', methods=['GET', 'POST'])
@@ -98,6 +105,31 @@ def search():
     results_html = f"<h1>Search Results for '{query}'</h1>"
     return results_html
 
+# function to get movies from the TMDB API and display them on the homepage 
+def get_movies(count = 10, image_size = "w500"):
+        url = "https://api.themoviedb.org/3/trending/movie/day"
+        response = requests.get(url, params={"api_key": TMDB_API})
+        response.raise_for_status()
+        data = response.json()
+        movies = []
+        for movie in data["results"]:
+            if len(movies) >= count:
+                break
+            poster_path = movie.get("poster_path")
+            poster_url = f"https://image.tmdb.org/t/p/{image_size}{poster_path}" if poster_path else None
+            movie_data = {
+                "title": movie["title"],
+                "release_date": movie["release_date"],
+                "overview": movie["overview"],
+                "poster_path": poster_url,
+                "id": movie["id"],
+                "vote_average": movie["vote_average"],
+                "vote_count": movie["vote_count"]
+            }
+            movies.append(movie_data)
+        return movies
+
+
 
 if __name__ == '__main__':
     with app.app_context():
@@ -105,3 +137,10 @@ if __name__ == '__main__':
         db.create_all()
         # Debug mode can expose errors and sensitive information - Bad security  
     app.run(debug=True)
+
+
+
+
+
+
+        

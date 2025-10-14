@@ -5,6 +5,34 @@
 <p>
   Hello, {{ session['username'] }}! <a href="{{ url_for('logout') }}">Logout</a>
 </p>
-{% else %}
-<p></p>
-{% endif %} {% endblock %}
+{% endif %}
+
+<!-- Display trending movies fetched from the TMDB API -->
+<hr />
+<h2>Trending Movies</h2>
+<!-- Call the get_movies function to fetch movies -->
+{% set movies = get_movies(10, "w500") %}
+<ul class="movie-list">
+  {% for movie in movies %}
+  <li class="movie-item">
+    <!-- Display movie poster if available, otherwise show a placeholder message -->
+    {% if movie.poster_path %}
+    <img
+      src="{{ movie.poster_path }}"
+      alt="{{ movie.title }} Poster"
+      class="movie-poster"
+    />
+    {% else %}
+    <div class="no-poster">No Movie Poster Available for {{ movie.title }}</div>
+    {% endif %}
+    <!--Display movie details -->
+    <div class="movie-info">
+      <h3>{{ movie.title }}</h3>
+      <p>Release Date: {{ movie.release_date }}</p>
+      <p>Rating: {{ movie.vote_average }} ({{ movie.vote_count }} votes)</p>
+      <p>{{ movie.overview }}</p>
+    </div>
+  </li>
+  > {% endfor %}
+</ul>
+{% endblock %}
