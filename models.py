@@ -57,3 +57,17 @@ class User(db.Model):
             except _sqlite3.Error as e:
                 print(f"An error occurred: {e}")
                 return False
+            
+    class Comment(db.Model):
+        id = db.Column(db.Integer, primary_key=True)
+        post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+        user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+        content = db.Column(db.Text, nullable=False)
+        timestamp = db.Column(db.DateTime, index=True, default=db.func.now())
+
+    class Reply(db.Model):
+        id = db.Column(db.Integer, primary_key=True)
+        comment_id = db.Column(db.Integer, db.ForeignKey('comment.id'), nullable=False)
+        user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+        content = db.Column(db.Text, nullable=False)
+        timestamp = db.Column(db.DateTime, index=True, default=db.func.now())

@@ -1,0 +1,24 @@
+<!-- search results page - will display the movies that math the users search query from the search bar -->
+{% extends "base.html" %} {% block content %}
+<h1>Search Results for "{{ query }}"</h1>
+
+<!-- check if movies were found -->
+{% if movies %}
+<ul class="list-group">
+  {% for movie in movies %}
+  <li class="list-group-item">
+    <!-- link to the movie details page using the movies ID -->
+    <a href="{{ url_for('movie_details', movie_id=movie.id) }}"
+      >{{ movie.title }}</a
+    >
+    {% if movie.release_date %}
+    <p><strong>Release Date:</strong> {{ movie.release_date }}</p>
+    {% endif %} {% if movie.overview %}
+    <p>{{ movie.overview }}</p>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No results found for "{{ query }}". Please try a different search term.</p>
+{% endif %} {% endblock %}

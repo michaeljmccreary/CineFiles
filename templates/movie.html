@@ -1,0 +1,77 @@
+{% extends "base.html" %} {% block content %}
+<div class="movie-details">
+  <h1>{{ movie.title }}</h1>
+  <p><strong>Release Date:</strong> {{ movie.release_date }}</p>
+  <p><strong>Genre:</strong> {{ movie.genre }}</p>
+  <p><strong>Director:</strong> {{ movie.director }}</p>
+  <p><strong>Cast:</strong> {{ movie.cast }}</p>
+  <p><strong>Plot:</strong> {{ movie.plot }}</p>
+  <img
+    src="{{ movie.poster_url }}"
+    alt="{{ movie.title }} Poster"
+    class="movie-poster"
+  />
+</div>
+
+<!-- Reviews Section -->
+<div class="reviews-section">
+  <h2>Reviews</h2>
+  {% if reviews %}
+  <ul class="list-group">
+    {% for review in reviews %}
+    <li class="list-group-item">
+      <strong>{{ review.username }}</strong> rated it {{ review.rating }}/10
+      <p>{{ review.comment }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No reviews yet. Be the first to review this movie!</p>
+  {% endif %}
+</div>
+
+<!-- Comment section-->
+<div class="comment-section">
+  <h2>Leave a Comment</h2>
+  {% if 'username' in session %}
+  <form action="{{ url_for('add_comment', movie_id=movie.id) }}" method="POST">
+    <div class="mb-3">
+      <label for="comment" class="form-label">Your Comment:</label>
+      <textarea
+        class="form-control"
+        id="comment"
+        name="comment"
+        rows="3"
+        required
+      ></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+  </form>
+  {% else %}
+  <p>Please <a href="{{ url_for('login') }}">login</a> to leave a comment.</p>
+  {% endif %}
+</div>
+
+<!-- Reply form -->
+<div class="reply-section">
+  <h2>Leave a Reply</h2>
+  {% if 'username' in session %}
+  <form action="{{ url_for('add_reply', movie_id=movie.id) }}" method="POST">
+    <div class="mb-3">
+      <label for="reply" class="form-label">Your Reply:</label>
+      <textarea
+        class="form-control"
+        id="reply"
+        name="reply"
+        rows="3"
+        required
+      ></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+  </form>
+  {% else %}
+  <p>Please <a href="{{ url_for('login') }}">login</a> to leave a reply.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

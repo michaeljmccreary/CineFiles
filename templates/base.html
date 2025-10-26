@@ -15,6 +15,7 @@
     {% block head %}{% endblock %}
   </head>
   <body>
+    <!-- Navbar code taken from Bootstrap  and modified -->
     <nav
       class="navbar navbar-expand-lg bg-body-tertiary bg-dark"
       data-bs-theme="dark"
@@ -57,10 +58,16 @@
               >
             </li>
           </ul>
-          <form class="d-flex" role="search">
+          <form
+            class="d-flex"
+            role="search"
+            action="{{ url_for('search') }}"
+            method="GET"
+          >
             <input
               class="form-control me-2"
               type="search"
+              name="query"
               placeholder="Search"
               aria-label="Search"
             />
@@ -78,6 +85,7 @@
     message in messages %}
     <div class="alert alert-info">{{ message }}</div>
     {% endfor %} {% endif %} {% endwith %}
+    <!-- Footer code taken from Bootstrap and modified -->
     <div class="card">
       <div class="card-header"></div>
       <div class="card-body">

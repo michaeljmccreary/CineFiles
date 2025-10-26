@@ -117,7 +117,6 @@ def profile():
         flash("User not found.")
         return redirect(url_for('login'))
     
-        
 
 # Logout - logs the user out by clearing the session
 @app.route('/logout')
@@ -126,19 +125,31 @@ def logout():
     flash("You have been logged out.")
     return redirect(url_for('index'))
 
+# Search route - allows users to search for movies
 @app.route('/search')
 def search():
+    # Get the search query from the URL parameters - Vulnerable to XSS attacks
     query = request.args.get('query', '')
     # Build a simple HTML response to show the search query - Vulnerable to XSS attacks
-    results_html = f"<h1>Search Results for '{query}'</h1>"
-    return results_html
+    url = f"https://api.themoviedb.org/3/search/movie"
+    response = requests.get(url, params={"api_key": TMDB_API, "query": query})
+    # Check for request errors
+    response.raise_for_status()
+    # Get the JSON data from the response
+    data = response.json()
+    # Render the search results template with the movies found
+    return render_template('search.html', movies=data["results"], query=query)
 
 # function to get movies from the TMDB API and display them on the homepage 
 def get_movies(count = 10, image_size = "w500"):
+        # Fetch trending movies from TMDB API
         url = "https://api.themoviedb.org/3/trending/movie/day"
         response = requests.get(url, params={"api_key": TMDB_API})
+        # Check for request errors
         response.raise_for_status()
+        # Get the JSON data from the response
         data = response.json()
+        # Process and return a list of movies
         movies = []
         for movie in data["results"]:
             if len(movies) >= count:
@@ -157,6 +168,83 @@ def get_movies(count = 10, image_size = "w500"):
             movies.append(movie_data)
         return movies
 
+# Add Movie Details Route
+@app.route('/movie/<int:movie_id>')
+def movie_details(movie_id):
+    # Fetch movie details from TMDB API
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}"
+    response = requests.get(url, params={"api_key": TMDB_API})
+    response.raise_for_status()
+    movie = response.json()
+    # Get poster image for the movie
+    poster_path = movie.get("poster_path")
+    # Build full poster URL
+    poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None
+    movie_data = {
+        "title": movie["title"],
+        "release_date": movie["release_date"],
+        "overview": movie["overview"],
+        "poster_path": poster_url,
+        "id": movie["id"],
+        "vote_average": movie["vote_average"],
+        "vote_count": movie["vote_count"]
+    }
+    return render_template('movie.html', movie=movie_data)
+
+# Route to add a review for a movie
+@app.route('/movie/<int:movie_id>/review', methods=['POST'])
+def add_review(movie_id):
+    # Get user ID from session
+    user_id = session.get('user_id')
+    # If user is not logged in, redirect to login page
+    if not user_id:
+        flash("Please log in to add a review.")
+        return redirect(url_for('login'))
+    # Get review data from form
+    rating = request.form.get('rating')
+    comment = request.form.get('comment', "")
+    # Check if there is a rating
+    if not rating:
+        flash("Please provide a rating.")
+        return redirect(url_for('movie_details', movie_id=movie_id))
+    # Direct database connection using sqlite3 - allows for SQL injection
+    conn = sqlite3.connect('instance/cinefiles.db')
+    cursor = conn.cursor()
+    query = f"INSERT INTO review (movie_id, rating, comment, user_id) VALUES ({movie_id}, {rating}, '{comment}', {user_id})"
+    try:
+        cursor.execute(query)
+        conn.commit()
+        flash("Review added successfully!")
+    except sqlite3.Error as e:
+        flash(f"An error occurred: {e}")
+    finally:
+        conn.close()
+    return redirect(url_for('movie_details', movie_id=movie_id))
+
+# Route to add a comment to a movie discussion
+@app.route('/movie/<int:movie_id>/comment', methods=['POST'])
+def add_comment(movie_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to add a comment.")
+        return redirect(url_for('login'))
+    # Get comment content from form
+    content = request.form.get('content', "")
+    if not content:
+        flash("Please provide comment content.")
+        return redirect(url_for('movie_details', movie_id=movie_id))
+    
+# Route to add a reply to a comment
+@app.route('/movie/<int:movie_id>/reply', methods=['POST'])
+def add_reply(movie_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to add a reply.")
+        return redirect(url_for('login'))
+    content = request.form.get('content', "")
+    if not content:
+        flash("Please provide reply content.")
+        return redirect(url_for('movie_details', movie_id=movie_id))
 
 
 if __name__ == '__main__':
