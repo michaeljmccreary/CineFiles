@@ -58,37 +58,65 @@ def register():
         except sqlite3.Error as e:
             flash(f"An error occurred: {e}")
             return redirect(url_for('register'))
+    return render_template('Register.html')
 
 # Login page - lets users log into their account if they have one
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         # Unsanitised user input - Bad security - Open to SQL Injection 
-        username = request.form("username", "")
+        email = request.form.get("email", "")
         # Password is in plaintext - No hashing is done - Bad security
-        password = request.form("password", "")
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+        if not email or not password:
+            flash("Please enter both email and password")
+            return redirect(url_for('login'))
         conn = sqlite3.connect('instance/cinefiles.db')
         cursor = conn.cursor()
         # Injected SQL statements will execute here 
-        query = f"SELECT * FROM user WHERE username = '{username}'"
+        query = f"SELECT * FROM user WHERE email = '{email}'"
         try:
             cursor.execute(query)
             # Gets the record and if a password is found will return as plaintext
             result = cursor.fetchone()
             conn.close()
             # Plaintext password comparison - Bad security
-            if result and result[2] == password:
+            if result and result[3] == password:
                 # Store user ID in session to keep user logged in
                 session['user_id'] = result[0]
+                session['username'] = result[1]
                 # Make the session permanent so it lasts longer
                 session.permanent = True  
-                return redirect(url_for('index'))
+                return redirect(url_for('profile'))
             else:
                 flash("Invalid username or password")
                 return redirect(url_for('login'))
         except sqlite3.Error as e:
             flash(f"An error occurred: {e}")
             return redirect(url_for('login'))
+    return render_template('Login.html')
+            
+
+# User profile page - shows user's information
+@app.route('/profile')
+def profile():
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to view your profile.")
+        return redirect(url_for('login'))
+    conn = sqlite3.connect('instance/cinefiles.db')
+    cursor = conn.cursor()
+    query = f"SELECT username, email FROM user WHERE id = {user_id}"
+    cursor.execute(query)
+    user = cursor.fetchone()
+    conn.close()
+    if user:
+        return render_template('Profile.html', username=user[0], email=user[1], movies=get_movies())
+    else:
+        flash("User not found.")
+        return redirect(url_for('login'))
+    
         
 
 # Logout - logs the user out by clearing the session

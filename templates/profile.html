@@ -1,0 +1,46 @@
+{% extends "base.html" %} {% block content %}
+
+<div class="dashboard-container">
+  <h2>User Profile</h2>
+  <p>Welcome, {{ session['username'] }}!</p>
+
+  <div class="profile-details">
+    <h1>Welcome to your profile, {{ username }}!</h1>
+  </div>
+
+  <!-- Adding a Carosel to rotate through movies -->
+  <div id="Carosel" class="carosel">
+    {% for movie in movies %}
+    <div class="carosel-item">
+      {% if movie.poster_path %}
+      <img
+        src="{{ movie.poster_path }}"
+        alt="{{ movie.title }} Poster"
+        class="carosel-poster"
+      />
+      {% else %}
+      <div class="no-poster">
+        No Movie Poster Available for {{ movie.title }}
+      </div>
+      {% endif %}
+
+      <div class="carosel-details">
+        <h3>{{ movie.title }}</h3>
+        <p>Release Date: {{ movie.release_date }}</p>
+        <p>Rating: {{ movie.vote_average }} ({{ movie.vote_count }} votes)</p>
+        <p>{{ movie.overview }}</p>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Carosel Navigation Buttons -->
+<div class="carosel-nav">
+  <button id="prevBtn" class="carosel-btn">Previous</button>
+  <button id="nextBtn" class="carosel-btn">Next</button>
+</div>
+<!-- Calling the javascript file to use the carosel buttons -->
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+{% endblock %}
