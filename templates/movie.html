@@ -5,7 +5,7 @@
   <p><strong>Genre:</strong> {{ movie.genre }}</p>
   <p><strong>Director:</strong> {{ movie.director }}</p>
   <p><strong>Cast:</strong> {{ movie.cast }}</p>
-  <p><strong>Plot:</strong> {{ movie.plot }}</p>
+  <p><strong>Plot:</strong> {{ movie.overview }}</p>
   <img
     src="{{ movie.poster_url }}"
     alt="{{ movie.title }} Poster"
@@ -20,13 +20,63 @@
   <ul class="list-group">
     {% for review in reviews %}
     <li class="list-group-item">
-      <strong>{{ review.username }}</strong> rated it {{ review.rating }}/10
-      <p>{{ review.comment }}</p>
+      <strong>{{ review[5] }}</strong> rated it {{ review[2] }}/10
+      <p>{{ review[3] }}</p>
     </li>
     {% endfor %}
   </ul>
   {% else %}
   <p>No reviews yet. Be the first to review this movie!</p>
+  {% endif %}
+</div>
+
+<!-- Add Review Form -->
+<div class="add-review-section">
+  <h2>Add Your Review</h2>
+  {% if 'username' in session %}
+  <form action="{{ url_for('add_review', movie_id=movie.id) }}" method="POST">
+    <div class="mb-3">
+      <label for="rating" class="form-label">Rating (1-10):</label>
+      <input
+        type="number"
+        class="form-control"
+        id="rating"
+        name="rating"
+        min="1"
+        max="10"
+        required
+      />
+    </div>
+    <div class="mb-3">
+      <label for="comment" class="form-label">Your Review:</label>
+      <textarea
+        class="form-control"
+        id="comment"
+        name="comment"
+        rows="3"
+      ></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit Review</button>
+  </form>
+  {% else %}
+  <p>Please <a href="{{ url_for('login') }}">login</a> to add a review.</p>
+  {% endif %}
+</div>
+
+<!-- Comments Display Section -->
+<div class="comments-display-section">
+  <h2>Comments</h2>
+  {% if comments %}
+  <ul class="list-group">
+    {% for comment in comments %}
+    <li class="list-group-item">
+      <strong>{{ comment[4] }}</strong>
+      <p>{{ comment[3] }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No comments yet. Be the first to comment!</p>
   {% endif %}
 </div>
 
@@ -40,7 +90,7 @@
       <textarea
         class="form-control"
         id="comment"
-        name="comment"
+        name="content"
         rows="3"
         required
       ></textarea>
@@ -49,28 +99,6 @@
   </form>
   {% else %}
   <p>Please <a href="{{ url_for('login') }}">login</a> to leave a comment.</p>
-  {% endif %}
-</div>
-
-<!-- Reply form -->
-<div class="reply-section">
-  <h2>Leave a Reply</h2>
-  {% if 'username' in session %}
-  <form action="{{ url_for('add_reply', movie_id=movie.id) }}" method="POST">
-    <div class="mb-3">
-      <label for="reply" class="form-label">Your Reply:</label>
-      <textarea
-        class="form-control"
-        id="reply"
-        name="reply"
-        rows="3"
-        required
-      ></textarea>
-    </div>
-    <button type="submit" class="btn btn-primary">Submit</button>
-  </form>
-  {% else %}
-  <p>Please <a href="{{ url_for('login') }}">login</a> to leave a reply.</p>
   {% endif %}
 </div>
 

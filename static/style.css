@@ -173,3 +173,49 @@
     padding: 15px;
   }
 }
+
+/* Body and HTML styling for sticky footer */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.container {
+  flex: 1;
+}
+
+/* Footer Styling - Match Navbar Dark Theme and stick to bottom */
+.card {
+  background-color: #212529;
+  border-color: #212529;
+  color: #ffffff;
+  margin-top: auto;
+  border-radius: 0;
+}
+
+.card-header {
+  background-color: #212529;
+  border-bottom: 1px solid #343a40;
+}
+
+.card-body {
+  background-color: #212529;
+}
+
+.blockquote {
+  color: #ffffff;
+  margin-bottom: 0;
+}
+
+.blockquote-footer {
+  color: #adb5bd;
+}

@@ -122,6 +122,8 @@ def profile():
 @app.route('/logout')
 def logout():
     session.pop('user_id', None)
+    session.pop('username', None)
+    session.clear()
     flash("You have been logged out.")
     return redirect(url_for('index'))
 
@@ -173,23 +175,56 @@ def get_movies(count = 10, image_size = "w500"):
 def movie_details(movie_id):
     # Fetch movie details from TMDB API
     url = f"https://api.themoviedb.org/3/movie/{movie_id}"
-    response = requests.get(url, params={"api_key": TMDB_API})
+    response = requests.get(url, params={"api_key": TMDB_API, "append_to_response": "credits"})
     response.raise_for_status()
     movie = response.json()
     # Get poster image for the movie
     poster_path = movie.get("poster_path")
     # Build full poster URL
     poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None
+    
+    # Get genres
+    genres = ", ".join([genre["name"] for genre in movie.get("genres", [])])
+    
+    # Get director from credits
+    director = "N/A"
+    if "credits" in movie and "crew" in movie["credits"]:
+        for crew_member in movie["credits"]["crew"]:
+            if crew_member.get("job") == "Director":
+                director = crew_member.get("name", "N/A")
+                break
+    
+    # Get cast
+    cast = "N/A"
+    if "credits" in movie and "cast" in movie["credits"]:
+        cast_list = [actor["name"] for actor in movie["credits"]["cast"][:5]]
+        cast = ", ".join(cast_list) if cast_list else "N/A"
+    
     movie_data = {
         "title": movie["title"],
-        "release_date": movie["release_date"],
-        "overview": movie["overview"],
-        "poster_path": poster_url,
+        "release_date": movie.get("release_date", "N/A"),
+        "overview": movie.get("overview", "No overview available"),
+        "poster_url": poster_url,
         "id": movie["id"],
-        "vote_average": movie["vote_average"],
-        "vote_count": movie["vote_count"]
+        "vote_average": movie.get("vote_average", 0),
+        "vote_count": movie.get("vote_count", 0),
+        "genre": genres,
+        "director": director,
+        "cast": cast
     }
-    return render_template('movie.html', movie=movie_data)
+    # Fetch any existing reviews for the movie with username
+    conn = sqlite3.connect('instance/cinefiles.db')
+    cursor = conn.cursor()
+    query = f"SELECT review.id, review.movie_id, review.rating, review.comment, review.user_id, user.username FROM review JOIN user ON review.user_id = user.id WHERE review.movie_id = {movie_id}"
+    cursor.execute(query)
+    reviews = cursor.fetchall()
+    
+    # Fetch any existing comments for the movie with username
+    query = f"SELECT comment.id, comment.post_id, comment.user_id, comment.content, user.username FROM comment JOIN user ON comment.user_id = user.id WHERE comment.post_id = {movie_id}"
+    cursor.execute(query)
+    comments = cursor.fetchall()
+    conn.close()
+    return render_template('movie.html', movie=movie_data, reviews=reviews, comments=comments)
 
 # Route to add a review for a movie
 @app.route('/movie/<int:movie_id>/review', methods=['POST'])
@@ -233,6 +268,19 @@ def add_comment(movie_id):
     if not content:
         flash("Please provide comment content.")
         return redirect(url_for('movie_details', movie_id=movie_id))
+    # Insert comment into database
+    conn = sqlite3.connect('instance/cinefiles.db')
+    cursor = conn.cursor()
+    query = f"INSERT INTO comment (post_id, user_id, content) VALUES ({movie_id}, {user_id}, '{content}')"
+    try:
+        cursor.execute(query)
+        conn.commit()
+        flash("Comment added successfully!")
+    except sqlite3.Error as e:
+        flash(f"An error occurred: {e}")
+    finally:
+        conn.close()
+    return redirect(url_for('movie_details', movie_id=movie_id))
     
 # Route to add a reply to a comment
 @app.route('/movie/<int:movie_id>/reply', methods=['POST'])
@@ -245,6 +293,19 @@ def add_reply(movie_id):
     if not content:
         flash("Please provide reply content.")
         return redirect(url_for('movie_details', movie_id=movie_id))
+    # Insert reply into database
+    conn = sqlite3.connect('instance/cinefiles.db')
+    cursor = conn.cursor()
+    query = f"INSERT INTO reply (comment_id, user_id, content) VALUES (1, {user_id}, '{content}')"
+    try:
+        cursor.execute(query)
+        conn.commit()
+        flash("Reply added successfully!")
+    except sqlite3.Error as e:
+        flash(f"An error occurred: {e}")
+    finally:
+        conn.close()
+    return redirect(url_for('movie_details', movie_id=movie_id))
 
 
 if __name__ == '__main__':
