@@ -11,6 +11,10 @@
   max-width: 100%;
 }
 
+.btn-primary:hover {
+  background-color: red;
+}
+
 /* Show scrollbar for better visibility */
 .carosel::-webkit-scrollbar {
   height: 10px;
@@ -112,7 +116,7 @@
 }
 
 .carosel-btn:hover {
-  background-color: #0056b3;
+  background-color: red;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
