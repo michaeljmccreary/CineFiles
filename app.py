@@ -6,14 +6,22 @@ from models import db, User
 from flask import Flask , render_template, request, redirect, url_for, flash, jsonify, session, g
 # For catching database errors
 import sqlite3
+# For password hashing
 import bcrypt
+# For sanitizing user input to prevent XSS attacks
 import html
+# For logging errors
 import logging
+# For regular expressions to validate input formats
 import re
 import os, time, random, requests
+# For handling time-related tasks
 from datetime import timedelta
+# To load environment variables from a .env file
 from dotenv import load_dotenv
+# For rate limiting to prevent brute force attacks
 from flask_limiter import Limiter
+# Function to get the remote address of the client
 from flask_limiter.util import get_remote_address
 
 # Load environment variables from .env file

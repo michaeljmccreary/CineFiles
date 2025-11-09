@@ -10,12 +10,13 @@ class Config:
 
     # Database configuration
     SQLALCHEMY_DATABASE_URI = 'sqlite:///cinefiles.db'
+    # Disable track modifications to save resources
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-
-    # This allows for HTTPS onlu
+    # This ensures that cookies are only sent over HTTPS in production
     SESSION_COOKIE_SECURE = os.environ.get('FLASK_ENV') == 'production'
     # This prevents Javascript access which prevents XSS attacks
     SESSION_COOKIE_HTTPONLY = True
     # Thius prevents against Cross site request forgery(CSRF) attacks 
     SESSION_COOKIE_SAMESITE = 'Strict'
+    # 15 minute session lifetime for better security
     PERMANENT_SESSION_LIFETIME = timedelta(minutes=15)
