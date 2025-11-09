@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -13,3 +14,6 @@ class Config:
     # Database configuration
     SQLALCHEMY_DATABASE_URI = 'sqlite:///cinefiles.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # Session configuration is vulnerable to session hijacking and fixation attacks
+    # Sessions should last for maybe 30 minutes to an hour for security purposes, not a whole month
+    PERMANENT_SESSION_LIFETIME = timedelta(days=31)

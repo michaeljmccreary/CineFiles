@@ -219,3 +219,11 @@ body {
 .blockquote-footer {
   color: #adb5bd;
 }
+
+#welcome-message {
+  padding: 15px;
+  margin: 20px 0;
+  background-color: #f8f9fa;
+  border-radius: 5px;
+  min-height: 20px;
+}

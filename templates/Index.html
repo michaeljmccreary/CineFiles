@@ -1,4 +1,17 @@
 {% extends "base.html" %} {% block content %}
+<!-- DOM-BASED XSS Vulnerability - Reads from URL and displays without sanitization -->
+<div id="welcome-message"></div>
+<script>
+  // DOM-based XSS: Reading URL parameter and inserting directly into DOM
+  // to test dom-based xss, use a URL like: http://localhost:5000/?message=<img src=x onerror=alert('pwned')>
+  const urlParams = new URLSearchParams(window.location.search);
+  const message = urlParams.get("message");
+  if (message) {
+    // VULNERABLE: Using innerHTML with unsanitized user input
+    document.getElementById("welcome-message").innerHTML = message;
+  }
+</script>
+
 <h1>Welcome to CineFiles</h1>
 <p>Your personal movie review and discussion website</p>
 {% if 'username' in session %}

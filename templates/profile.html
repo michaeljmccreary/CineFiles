@@ -3,6 +3,18 @@
 
   <div class="profile-details">
     <h1>Welcome to your profile, {{ username }}!</h1>
+    <p><strong>Email:</strong> {{ email }}</p>
+
+<!-- Display bio and location without sanitization (VULNERABLE) -->
+{% if bio %}
+<p><strong>Bio:</strong> {{ bio|safe }}</p>
+{% endif %}
+{% if location %}
+<p><strong>Location:</strong> {{ location|safe }}</p>
+{% endif %}
+
+<a href="{{ url_for('edit_profile') }}" class="btn btn-primary">Edit Profile</a>
+
   </div>
 
   <!-- Adding a Carosel to rotate through movies -->

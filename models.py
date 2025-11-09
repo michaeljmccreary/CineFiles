@@ -15,6 +15,9 @@ class User(db.Model):
     email = db.Column(db.String(60), unique=True, nullable=False)
     # Sroting password in plaintext - No hashing or encryption - Bad security
     password = db.Column(db.String(50), nullable=False)
+    # Bio and Location fields will be vulnerabile to stored XSS attacs
+    bio = db.Column(db.Text, nullable=True)
+    location = db.Column(db.String(100), nullable=True)
     reviews = db.relationship('Review', backref='author', lazy=True)
 
     # Sets the user's password in plaintext - No hashing or encryption - Bad security

@@ -16,6 +16,7 @@ app = Flask(__name__)
 # Load configuration from Config class
 app.config.from_object(Config)
 # Hardocoded secret key for session management - Bad security makes app vulnerable to session attacks
+# An attacker can hijack or forge sessions if they know the secret key
 # Secret key Generated using https://secretkeygen.vercel.app/ - hard coding into the app on purpose
 app.secret_key = "46bcef3f322dec211634eb9d0f497056"
 load_dotenv()
@@ -56,7 +57,8 @@ def register():
             flash("Account succsessfully created! Please log in to continue.")
             return redirect(url_for('login'))
         except sqlite3.Error as e:
-            flash(f"An error occurred: {e}")
+            # This will expose database errors to a an attacker - Bad security
+            flash(f"Database error: {str(e)} | Query: {query}")
             return redirect(url_for('register'))
     return render_template('Register.html')
 
@@ -84,6 +86,7 @@ def login():
             # Plaintext password comparison - Bad security
             if result and result[3] == password:
                 # Store user ID in session to keep user logged in
+                # I should use session.regenerate() here to prevent session fixation attacks
                 session['user_id'] = result[0]
                 session['username'] = result[1]
                 # Make the session permanent so it lasts longer
@@ -107,12 +110,51 @@ def profile():
         return redirect(url_for('login'))
     conn = sqlite3.connect('instance/cinefiles.db')
     cursor = conn.cursor()
-    query = f"SELECT username, email FROM user WHERE id = {user_id}"
+    query = f"SELECT username, email, bio, location FROM user WHERE id = {user_id}"
     cursor.execute(query)
     user = cursor.fetchone()
     conn.close()
     if user:
-        return render_template('Profile.html', username=user[0], email=user[1], movies=get_movies())
+        return render_template('Profile.html', username=user[0], email=user[1], bio=user[2], location=user[3], movies=get_movies())
+    else:
+        flash("User not found.")
+        return redirect(url_for('login'))
+    
+# Edit profile route - Will allow users to update their profiles 
+@app.route('/profile/edit', methods=['GET', 'POST'])
+def edit_profile():
+    # Check if user is logged in
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to edit your profile.")
+        return redirect(url_for('login'))
+    if request.method == 'POST':
+        # Get the data - No sanitisation or validation - Vulnerable to XSS attacks
+        bio = request.form.get('bio', "")
+        location = request.form.get('location', "")
+        # Update the user's profile with unsanitised input - Vulnerable to SQL Injection
+        conn = sqlite3.connect('instance/cinefiles.db')
+        cursor = conn.cursor()
+        query = f"UPDATE user SET bio = '{bio}', location = '{location}' WHERE id = {user_id}"
+        try:
+            cursor.execute(query)
+            conn.commit()
+            flash("Profile updated successfully!")
+        except sqlite3.Error as e:
+            flash(f"An error occurred: {e}")
+        finally:
+            conn.close()
+        return redirect(url_for('profile'))
+    
+# GET request - show profile wth the updated information 
+    conn = sqlite3.connect('instance/cinefiles.db')
+    cursor = conn.cursor()
+    query = f"SELECT username, email, bio, location FROM user WHERE id = {user_id}"
+    cursor.execute(query)
+    user = cursor.fetchone()
+    conn.close()
+    if user:
+        return render_template('edit_profile.html', username=user[0], email=user[1], bio=user[2], location=user[3])
     else:
         flash("User not found.")
         return redirect(url_for('login'))
@@ -312,6 +354,8 @@ if __name__ == '__main__':
     with app.app_context():
         # Create database tables
         db.create_all()
+        # Propagate exceptions causes detailed error messages to be shown - Bad security
+        app.config['PROPAGATE_EXCEPTIONS'] = True
         # Debug mode can expose errors and sensitive information - Bad security  
     app.run(debug=True)
 
