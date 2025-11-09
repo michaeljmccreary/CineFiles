@@ -6,24 +6,72 @@ from models import db, User
 from flask import Flask , render_template, request, redirect, url_for, flash, jsonify, session, g
 # For catching database errors
 import sqlite3
+import bcrypt
+import html
+import logging
+import re
 import os, time, random, requests
+from datetime import timedelta
 from dotenv import load_dotenv
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
-
+# Load environment variables from .env file
+load_dotenv()
 # Create the Flask application and configure it
 # Tells flask to look for templates and static files in the current directory
 app = Flask(__name__) 
+# Set session lifetime to 15 minutes for better security
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=15)
 # Load configuration from Config class
 app.config.from_object(Config)
-# Hardocoded secret key for session management - Bad security makes app vulnerable to session attacks
-# An attacker can hijack or forge sessions if they know the secret key
-# Secret key Generated using https://secretkeygen.vercel.app/ - hard coding into the app on purpose
-app.secret_key = "46bcef3f322dec211634eb9d0f497056"
-load_dotenv()
+
+# Secret key is now being stored in the .env file for better security
+app.secret_key = os.getenv('secret_key')
 TMDB_API= os.environ.get("TMDB_API")
 # Connect the database to the app
 db.init_app(app)
 
+# Initialize Flask-Limiter with the app and set default rate limits
+# This prevents against brute force attacks 
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["100 per day", "50 per hour"],
+    storage_uri="memory://"
+)
+
+#### HELPER FUNCTIONS - to increase security####
+
+# Validates an email for format
+def validate_email(email):
+    # Regular expression for validating an email address
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    # returns true if email is valid or false if it is not
+    return re.match(email_pattern, email) 
+
+# validates the strength of a password
+def validate_password_strength(password):
+    # check the minimum lenth
+    if len(password) < 8:
+        raise ValueError("Password must be at least 8 characters long.")
+    # Check for at least one uppercase letter
+    if not re.search(r'[A-Z]', password):
+        raise ValueError("Password must contain at least one uppercase letter.")
+    # Check for at least one lowercase letter
+    if not re.search(r'[a-z]', password):
+        raise ValueError("Password must contain at least one lowercase letter.")
+    # Check for at least one digit
+    if not re.search(r'[0-9]', password):
+        raise ValueError("Password must contain at least one digit.")
+    # Check for at least one special character
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        raise ValueError("Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>]).")
+    
+
+# sanitises user input to prevent XSS attacks
+def sanitize_input(user_input):
+    return html.escape(user_input).strip()
 
 #### ROUTES ####
 # Home page route - when someone visits the root URL
@@ -39,64 +87,107 @@ def register():
 # If the form is submitted
     if request.method == 'POST':
         # Get form data
-        username = request.form.get('username', "").strip()
-        email = request.form.get('email', "").strip()
-        # Password is plaintext - No hashing is done - Bad security
-        password = request.form.get('password', "")
-        # No lnegth checks or user input sanitisation 
+        username = sanitize_input(request.form.get('username', ""))
+        email = sanitize_input(request.form.get('email', ""))
+        # Password is now encrypted using bcrypt
+        password = request.form.get('password', "").strip()
+        confirm_password = request.form.get('confirm_password', "").strip()
+        # adding validation to check if passwords match
+        if password != confirm_password:
+            flash("Passwords do not match")
+            return redirect(url_for("register"))
+        
+        # validation to ensure all fields are filled in 
         if not username or not email or not password:
             flash("Please submit all fields")
             return redirect(url_for("register"))
-        # SQL Injection vulnerability here - user input is directly inserted into SQL query
+        
+        # length checks for username and password
+        if len(username) < 5 or len(password) < 8:
+            flash("Username must be at least 5 characters and password at least 8 characters long.")
+            return redirect(url_for("register"))
+        
+        # Check that username only contains alphanumeric characters and underscores - prevents XSS attacks
+        if not re.match(r'^[a-zA-Z0-9_]+$', username):
+            flash("Username can only contain letters, numbers, and underscores")
+            return redirect(url_for("register"))
+        
+        # Validate email format
+        if not validate_email(email):
+            flash("Please enter a valid email address")
+            return redirect(url_for("register"))
+        
+        # Validate password strength
+        try:
+            validate_password_strength(password)
+        except ValueError as ve:
+            flash(str(ve))
+            return redirect(url_for("register"))
+        
+        # Hash the password with bcrypt
+        hash_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
         conn = sqlite3.connect('instance/cinefiles.db')
         cursor = conn.cursor()
-        query = f"INSERT INTO user (username, email, password) VALUES ('{username}', '{email}', '{password}')"
+        # Using parameterized queries to prevent SQL injection        
+        query = "INSERT INTO user (username, email, password) VALUES (?, ?, ?)"
         try:
-            cursor.execute(query)
+            cursor.execute(query, (username, email, hash_password))
             conn.commit()
             flash("Account succsessfully created! Please log in to continue.")
             return redirect(url_for('login'))
         except sqlite3.Error as e:
-            # This will expose database errors to a an attacker - Bad security
-            flash(f"Database error: {str(e)} | Query: {query}")
+            logging.error(f"Database error: {e}")
+            flash("An error occurred")
             return redirect(url_for('register'))
+        finally:
+            conn.close()
     return render_template('Register.html')
 
 # Login page - lets users log into their account if they have one
 @app.route('/login', methods=['GET', 'POST'])
+# Rate limiting to prevent brute force attacks
+@limiter.limit("5 per minute")  
 def login():
     if request.method == 'POST':
-        # Unsanitised user input - Bad security - Open to SQL Injection 
-        email = request.form.get("email", "")
-        # Password is in plaintext - No hashing is done - Bad security
-        password = request.form.get("password", "")
-        confirm_password = request.form.get("confirm_password", "")
+        # Get form data
+        email = sanitize_input(request.form.get("email", ""))
+        # Password is now being hashing
+        password = request.form.get("password", "").strip()
+        # validation to ensure both fields are filled in
         if not email or not password:
             flash("Please enter both email and password")
             return redirect(url_for('login'))
+        
+        # validation to check email format to prevent SQL injection attacks
+        if not validate_email(email):
+            flash("Please enter a valid email address")
+            return redirect(url_for('login'))
+        
+        # connect to the database
         conn = sqlite3.connect('instance/cinefiles.db')
         cursor = conn.cursor()
-        # Injected SQL statements will execute here 
-        query = f"SELECT * FROM user WHERE email = '{email}'"
+    # Using parameterized queries to prevent SQL injection  
+        query = "SELECT id, username, password FROM user WHERE email = ?"
         try:
-            cursor.execute(query)
-            # Gets the record and if a password is found will return as plaintext
+            cursor.execute(query, (email,))
             result = cursor.fetchone()
             conn.close()
-            # Plaintext password comparison - Bad security
-            if result and result[3] == password:
-                # Store user ID in session to keep user logged in
-                # I should use session.regenerate() here to prevent session fixation attacks
+            # Password comparison using bcrypt - compares hashed password with stored hash
+            if result and bcrypt.checkpw(password.encode('utf-8'), result[2].encode('utf-8')):
+                # Set session variables
+                # prevents session fixation attacks by clearing any existing session data
+                session.clear()
                 session['user_id'] = result[0]
                 session['username'] = result[1]
-                # Make the session permanent so it lasts longer
                 session.permanent = True  
                 return redirect(url_for('profile'))
             else:
                 flash("Invalid username or password")
                 return redirect(url_for('login'))
         except sqlite3.Error as e:
-            flash(f"An error occurred: {e}")
+            logging.error(f"Database error: {e}")
+            flash("An error occurred. Please try again.")
             return redirect(url_for('login'))
     return render_template('Login.html')
             
@@ -105,13 +196,16 @@ def login():
 @app.route('/profile')
 def profile():
     user_id = session.get('user_id')
+    # Check if user is logged in
     if not user_id:
         flash("Please log in to view your profile.")
         return redirect(url_for('login'))
+    
     conn = sqlite3.connect('instance/cinefiles.db')
     cursor = conn.cursor()
-    query = f"SELECT username, email, bio, location FROM user WHERE id = {user_id}"
-    cursor.execute(query)
+    # Using parameterized queries to prevent SQL injection
+    query = "SELECT username, email, bio, location FROM user WHERE id = ?"
+    cursor.execute(query, (user_id,))
     user = cursor.fetchone()
     conn.close()
     if user:
@@ -119,6 +213,7 @@ def profile():
     else:
         flash("User not found.")
         return redirect(url_for('login'))
+
     
 # Edit profile route - Will allow users to update their profiles 
 @app.route('/profile/edit', methods=['GET', 'POST'])
@@ -129,19 +224,29 @@ def edit_profile():
         flash("Please log in to edit your profile.")
         return redirect(url_for('login'))
     if request.method == 'POST':
-        # Get the data - No sanitisation or validation - Vulnerable to XSS attacks
-        bio = request.form.get('bio', "")
-        location = request.form.get('location', "")
-        # Update the user's profile with unsanitised input - Vulnerable to SQL Injection
+        # Get the data - sanitisation is now being completed
+        bio = sanitize_input(request.form.get('bio', ""))
+        location = sanitize_input(request.form.get('location', ""))
+
+        # validation to check length of bio and location
+        if len(bio) > 500:
+            flash("Bio cannot exceed 500 characters.")
+            return redirect(url_for('edit_profile'))
+        if len(location) > 30:
+            flash("Location cannot exceed 30 characters.")
+            return redirect(url_for('edit_profile'))
+        
+        # Update the user's profile with sanitized input - prevents SQL injection
         conn = sqlite3.connect('instance/cinefiles.db')
         cursor = conn.cursor()
-        query = f"UPDATE user SET bio = '{bio}', location = '{location}' WHERE id = {user_id}"
+        query = "UPDATE user SET bio = ?, location = ? WHERE id = ?"
         try:
-            cursor.execute(query)
+            cursor.execute(query, (bio, location, user_id))
             conn.commit()
             flash("Profile updated successfully!")
         except sqlite3.Error as e:
-            flash(f"An error occurred: {e}")
+            logging.error(f"Database error: {e}")
+            flash("An error occurred. Please try again.")
         finally:
             conn.close()
         return redirect(url_for('profile'))
@@ -149,8 +254,8 @@ def edit_profile():
 # GET request - show profile wth the updated information 
     conn = sqlite3.connect('instance/cinefiles.db')
     cursor = conn.cursor()
-    query = f"SELECT username, email, bio, location FROM user WHERE id = {user_id}"
-    cursor.execute(query)
+    query = "SELECT username, email, bio, location FROM user WHERE id = ?"
+    cursor.execute(query, (user_id,))
     user = cursor.fetchone()
     conn.close()
     if user:
@@ -158,6 +263,7 @@ def edit_profile():
     else:
         flash("User not found.")
         return redirect(url_for('login'))
+
     
 
 # Logout - logs the user out by clearing the session
@@ -172,11 +278,18 @@ def logout():
 # Search route - allows users to search for movies
 @app.route('/search')
 def search():
-    # Get the search query from the URL parameters - Vulnerable to XSS attacks
-    query = request.args.get('query', '')
-    # Build a simple HTML response to show the search query - Vulnerable to XSS attacks
+    query = request.args.get('query', '').strip()
+
+    # sanitize the query to prevent XSS attacks
+    safe_query = sanitize_input(query)
+
+    # validation to check if query is empty
+    if not safe_query:
+        flash("Please enter a search query.")
+        return redirect(url_for('index'))
+    
     url = f"https://api.themoviedb.org/3/search/movie"
-    response = requests.get(url, params={"api_key": TMDB_API, "query": query})
+    response = requests.get(url, params={"api_key": TMDB_API, "query": safe_query})
     # Check for request errors
     response.raise_for_status()
     # Get the JSON data from the response
@@ -257,15 +370,16 @@ def movie_details(movie_id):
     # Fetch any existing reviews for the movie with username
     conn = sqlite3.connect('instance/cinefiles.db')
     cursor = conn.cursor()
-    query = f"SELECT review.id, review.movie_id, review.rating, review.comment, review.user_id, user.username FROM review JOIN user ON review.user_id = user.id WHERE review.movie_id = {movie_id}"
-    cursor.execute(query)
+    query = "SELECT review.id, review.movie_id, review.rating, review.comment, review.user_id, user.username FROM review JOIN user ON review.user_id = user.id WHERE review.movie_id = ?"
+    cursor.execute(query, (movie_id,))
     reviews = cursor.fetchall()
     
     # Fetch any existing comments for the movie with username
-    query = f"SELECT comment.id, comment.post_id, comment.user_id, comment.content, user.username FROM comment JOIN user ON comment.user_id = user.id WHERE comment.post_id = {movie_id}"
-    cursor.execute(query)
+    query = "SELECT comment.id, comment.post_id, comment.user_id, comment.content, user.username FROM comment JOIN user ON comment.user_id = user.id WHERE comment.post_id = ?"
+    cursor.execute(query, (movie_id,))
     comments = cursor.fetchall()
     conn.close()
+
     return render_template('movie.html', movie=movie_data, reviews=reviews, comments=comments)
 
 # Route to add a review for a movie
@@ -279,21 +393,34 @@ def add_review(movie_id):
         return redirect(url_for('login'))
     # Get review data from form
     rating = request.form.get('rating')
-    comment = request.form.get('comment', "")
+    comment = html.escape(request.form.get('comment', "")).strip()
     # Check if there is a rating
     if not rating:
         flash("Please provide a rating.")
         return redirect(url_for('movie_details', movie_id=movie_id))
-    # Direct database connection using sqlite3 - allows for SQL injection
+    
+    # adding validation to ensure rating is between 1 and 10
+    try:
+        rating = int(rating)
+        if rating < 1 or rating > 10:
+            flash("Rating must be between 1 and 10.")
+            return redirect(url_for('movie_details', movie_id=movie_id))
+    except ValueError:
+        flash("Invalid rating value.")
+        return redirect(url_for('movie_details', movie_id=movie_id)) 
+
+    # Direct database connection using sqlite3 - prevents SQL injection with parameterized queries
     conn = sqlite3.connect('instance/cinefiles.db')
     cursor = conn.cursor()
-    query = f"INSERT INTO review (movie_id, rating, comment, user_id) VALUES ({movie_id}, {rating}, '{comment}', {user_id})"
+    query = "INSERT INTO review (movie_id, rating, comment, user_id) VALUES (?, ?, ?, ?)"
     try:
-        cursor.execute(query)
+        cursor.execute(query, (movie_id, rating, comment, user_id))
+
         conn.commit()
         flash("Review added successfully!")
     except sqlite3.Error as e:
-        flash(f"An error occurred: {e}")
+            logging.error(f"Database error: {e}")
+            flash("An error occurred. Please try again.")
     finally:
         conn.close()
     return redirect(url_for('movie_details', movie_id=movie_id))
@@ -306,20 +433,22 @@ def add_comment(movie_id):
         flash("Please log in to add a comment.")
         return redirect(url_for('login'))
     # Get comment content from form
-    content = request.form.get('content', "")
+    content = html.escape(request.form.get('content', "")).strip()
     if not content:
         flash("Please provide comment content.")
         return redirect(url_for('movie_details', movie_id=movie_id))
     # Insert comment into database
     conn = sqlite3.connect('instance/cinefiles.db')
     cursor = conn.cursor()
-    query = f"INSERT INTO comment (post_id, user_id, content) VALUES ({movie_id}, {user_id}, '{content}')"
+    query = "INSERT INTO comment (post_id, user_id, content) VALUES (?, ?, ?)"
     try:
-        cursor.execute(query)
+        cursor.execute(query, (movie_id, user_id, content))
+
         conn.commit()
         flash("Comment added successfully!")
     except sqlite3.Error as e:
-        flash(f"An error occurred: {e}")
+            logging.error(f"Database error: {e}")
+            flash("An error occurred. Please try again.")
     finally:
         conn.close()
     return redirect(url_for('movie_details', movie_id=movie_id))
@@ -329,14 +458,8 @@ if __name__ == '__main__':
     with app.app_context():
         # Create database tables
         db.create_all()
-        # Propagate exceptions causes detailed error messages to be shown - Bad security
-        app.config['PROPAGATE_EXCEPTIONS'] = True
-        # Debug mode can expose errors and sensitive information - Bad security  
-    app.run(debug=True)
-
-
-
-
-
-
-        
+        # making propagate exceptions false to prevent detailed error messages being shown to attakers 
+        app.config['PROPAGATE_EXCEPTIONS'] = False
+        # Debug mode will only be anbled now in developert mode 
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'True'
+    app.run(debug=debug_mode)

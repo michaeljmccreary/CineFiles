@@ -6,14 +6,16 @@ load_dotenv()
 class Config:
     # Load the TMDB API key from environment variables
     TMDB_API_KEY = os.getenv('TMDB_API')
-
-# Hardocoded secret key for session management - Bad security makes app vulnerable to session attacks
-# Secret key Generated using https://secretkeygen.vercel.app/ - hard coding into the app on purpose
-    secret_key = "46bcef3f322dec211634eb9d0f497056"
+    SECRET_KEY = os.getenv('SECRET_KEY')
 
     # Database configuration
     SQLALCHEMY_DATABASE_URI = 'sqlite:///cinefiles.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    # Session configuration is vulnerable to session hijacking and fixation attacks
-    # Sessions should last for maybe 30 minutes to an hour for security purposes, not a whole month
-    PERMANENT_SESSION_LIFETIME = timedelta(days=31)
+
+    # This allows for HTTPS onlu
+    SESSION_COOKIE_SECURE = os.environ.get('FLASK_ENV') == 'production'
+    # This prevents Javascript access which prevents XSS attacks
+    SESSION_COOKIE_HTTPONLY = True
+    # Thius prevents against Cross site request forgery(CSRF) attacks 
+    SESSION_COOKIE_SAMESITE = 'Strict'
+    PERMANENT_SESSION_LIFETIME = timedelta(minutes=15)
