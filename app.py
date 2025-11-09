@@ -323,33 +323,8 @@ def add_comment(movie_id):
     finally:
         conn.close()
     return redirect(url_for('movie_details', movie_id=movie_id))
-    
-# Route to add a reply to a comment
-@app.route('/movie/<int:movie_id>/reply', methods=['POST'])
-def add_reply(movie_id):
-    user_id = session.get('user_id')
-    if not user_id:
-        flash("Please log in to add a reply.")
-        return redirect(url_for('login'))
-    content = request.form.get('content', "")
-    if not content:
-        flash("Please provide reply content.")
-        return redirect(url_for('movie_details', movie_id=movie_id))
-    # Insert reply into database
-    conn = sqlite3.connect('instance/cinefiles.db')
-    cursor = conn.cursor()
-    query = f"INSERT INTO reply (comment_id, user_id, content) VALUES (1, {user_id}, '{content}')"
-    try:
-        cursor.execute(query)
-        conn.commit()
-        flash("Reply added successfully!")
-    except sqlite3.Error as e:
-        flash(f"An error occurred: {e}")
-    finally:
-        conn.close()
-    return redirect(url_for('movie_details', movie_id=movie_id))
 
-
+# Run the application
 if __name__ == '__main__':
     with app.app_context():
         # Create database tables
