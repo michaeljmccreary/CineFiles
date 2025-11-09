@@ -4,8 +4,9 @@
 <!-- INput type for email should not be text, this allows a non email format to be typed such as: "' OR '1'='1' -- " a very common sql injection attack -->
 <form method="POST">
   <div class="mb-3">
+    <!-- Changed type to email for better validation -->
     <input
-      type="text"
+      type="email"
       class="form-control"
       name="email"
       placeholder="email@cinefiles.com"
