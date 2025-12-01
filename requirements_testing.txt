@@ -1,0 +1,25 @@
+# Testing Dependencies for CineFile Application
+
+# Core Application Dependencies
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+python-dotenv==1.0.0
+requests==2.31.0
+
+# Selenium Testing
+selenium==4.15.2
+webdriver-manager==4.0.1
+
+# Playwright Testing
+playwright==1.40.0
+pytest-playwright==0.4.3
+
+# Unit Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Performance Testing
+locust==2.18.0
+
+# For generating test data
+Faker==20.1.0  
