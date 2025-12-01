@@ -1,12 +1,7 @@
 """
 Automated Testing for CineFiles Web Application using Playwright
-
 This test suite checks all the main features of the CineFiles movie review website.
 It tests things like user registration, login, searching for movies, adding reviews, etc.
-
-To run these tests:
-1. Make sure your Flask app is running on http://localhost:5000
-2. Run: python test_playwright.py
 """
 
 import asyncio
@@ -179,8 +174,6 @@ class CineFilesPlaywrightTests:
 
         """
         Test 3: Test the user registration process.
-        fill out the registration form and submit it.
-        If the user already exists, the test still passes.
         """
     async def test_03_user_registration(self):
         print("\nTest 3: User Registration ")
