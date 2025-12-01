@@ -71,7 +71,7 @@
     {% for comment in comments %}
     <li class="list-group-item">
       <strong>{{ comment[4] }}</strong>
-      <p>{{ comment[3] }}</p>
+      <p>{{ comment[3]|safe }}</p>
     </li>
     {% endfor %}
   </ul>

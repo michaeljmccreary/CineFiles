@@ -70,21 +70,19 @@ def login():
         email = request.form.get("email", "")
         # Password is in plaintext - No hashing is done - Bad security
         password = request.form.get("password", "")
-        confirm_password = request.form.get("confirm_password", "")
         if not email or not password:
             flash("Please enter both email and password")
             return redirect(url_for('login'))
         conn = sqlite3.connect('instance/cinefiles.db')
         cursor = conn.cursor()
-        # Injected SQL statements will execute here 
-        query = f"SELECT * FROM user WHERE email = '{email}'"
+        # Injected SQL statements will execute here - Modified for full authentication bypass vulnerability
+        query = f"SELECT * FROM user WHERE email = '{email}' AND password = '{password}'"
         try:
             cursor.execute(query)
-            # Gets the record and if a password is found will return as plaintext
+            # Fetch result - If row returned, login succeeds (allows bypass via injection)
             result = cursor.fetchone()
             conn.close()
-            # Plaintext password comparison - Bad security
-            if result and result[3] == password:
+            if result:
                 # Store user ID in session to keep user logged in
                 # I should use session.regenerate() here to prevent session fixation attacks
                 session['user_id'] = result[0]
@@ -96,7 +94,8 @@ def login():
                 flash("Invalid username or password")
                 return redirect(url_for('login'))
         except sqlite3.Error as e:
-            flash(f"An error occurred: {e}")
+            # Expose database errors to show SQL injection is possible
+            flash(f"Database error: {str(e)} | Query: {query}")
             return redirect(url_for('login'))
     return render_template('Login.html')
             

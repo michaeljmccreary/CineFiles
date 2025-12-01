@@ -1,6 +1,6 @@
 <!-- search results page - will display the movies that math the users search query from the search bar -->
 {% extends "base.html" %} {% block content %}
-<h1>Search Results for "{{ query|safe }}"</h1>
+<h1>Search Results for "{{ query }}"</h1>
 
 <!-- check if movies were found -->
 {% if movies %}
